@@ -1,0 +1,107 @@
+// ================= PINS =================
+#define CUP_PIN A0
+#define CUP_LED 9
+
+#define IR_EMITTER 3
+#define IR_RECEIVER 2
+
+#define TOUCH_PIN 4
+
+#define ENC_CLK 5
+#define ENC_DT 6
+#define ENC_SW 7
+
+#define RELAY_PIN 10
+
+// ================= VARIABLES =================
+int lastEncCLK;
+int menuValue = 0;
+bool relayState = false;
+
+// ================= SETUP =================
+void setup() {
+  pinMode(CUP_LED, OUTPUT);
+
+  pinMode(IR_EMITTER, OUTPUT);
+  pinMode(IR_RECEIVER, INPUT);
+
+  pinMode(TOUCH_PIN, INPUT);
+
+  pinMode(ENC_CLK, INPUT);
+  pinMode(ENC_DT, INPUT);
+  pinMode(ENC_SW, INPUT_PULLUP);
+
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, LOW);
+
+  lastEncCLK = digitalRead(ENC_CLK);
+
+  Serial.begin(9600);
+  Serial.println("Gesture Controlled Vehicle Interface Started");
+}
+
+// ================= LOOP =================
+void loop() {
+
+  // -------- MAGIC LIGHT CUP (FIXED & STABLE) --------
+  int cupSum = 0;
+  for (int i = 0; i < 10; i++) {
+    cupSum += analogRead(CUP_PIN);
+    delay(2);
+  }
+  int cupValue = cupSum / 10;
+
+  if (cupValue < 600) {        // TILTED
+    digitalWrite(CUP_LED, HIGH);
+    Serial.println("Cup Tilted");
+  }
+  else if (cupValue > 650) {   // NOT TILTED
+    digitalWrite(CUP_LED, LOW);
+  }
+
+  // -------- IR GESTURE DETECTION --------
+  for (int i = 0; i < 200; i++) {
+    digitalWrite(IR_EMITTER, HIGH);
+    delayMicroseconds(13);
+    digitalWrite(IR_EMITTER, LOW);
+    delayMicroseconds(13);
+  }
+
+  if (digitalRead(IR_RECEIVER) == LOW) {
+    Serial.println("IR Gesture Detected");
+    relayState = !relayState;
+    digitalWrite(RELAY_PIN, relayState);
+    delay(500);
+  }
+
+  // -------- METAL TOUCH SENSOR --------
+  if (digitalRead(TOUCH_PIN) == HIGH) {
+    Serial.println("Touch Detected");
+    relayState = !relayState;
+    digitalWrite(RELAY_PIN, relayState);
+    delay(500);
+  }
+
+  // -------- ROTARY ENCODER --------
+  int currentCLK = digitalRead(ENC_CLK);
+  if (currentCLK != lastEncCLK) {
+    if (digitalRead(ENC_DT) != currentCLK) {
+      menuValue++;
+    } else {
+      menuValue--;
+    }
+    Serial.print("Encoder Value: ");
+    Serial.println(menuValue);
+  }
+  lastEncCLK = currentCLK;
+
+  // -------- ENCODER BUTTON --------
+  if (digitalRead(ENC_SW) == LOW) {
+    Serial.println("Encoder Button Pressed");
+    relayState = !relayState;
+    digitalWrite(RELAY_PIN, relayState);
+    delay(500);
+  }
+
+  delay(100);
+}
